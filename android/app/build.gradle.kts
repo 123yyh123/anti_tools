@@ -19,11 +19,18 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    signingConfigs {
+        // Release 签名配置 (密码硬编码，无需 Secrets)
+        create("release") {
+            storeFile = file("release-keystore.jks")
+            storePassword = "android123"
+            keyAlias = "release"
+            keyPassword = "android123"
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.yyh.antitools"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -31,10 +38,15 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        debug {
+            // Debug 使用系统默认的 debug 签名
             signingConfig = signingConfigs.getByName("debug")
+        }
+        release {
+            // Release 使用自定义签名
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
@@ -42,3 +54,4 @@ android {
 flutter {
     source = "../.."
 }
+
