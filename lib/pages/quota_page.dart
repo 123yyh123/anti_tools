@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/ios_widgets.dart';
 import '../services/antigravity_service.dart';
+import '../models/supported_models.dart';
 
 class QuotaPage extends StatefulWidget {
   const QuotaPage({super.key});
@@ -108,9 +109,62 @@ class _QuotaPageState extends State<QuotaPage> {
 
   /// 手动刷新
   Future<void> _refreshQuota() async {
+    // 如果已经在加载中，防止重复点击
+    if (_isRefreshing || (_isLoading && _quotaData == null)) return;
+
     setState(() => _isRefreshing = true);
-    await _loadQuota();
-    setState(() => _isRefreshing = false);
+    
+    // 注意：这里不再调用 _loadQuota() 里的 setState(isLoading=true)，因为那会触发全屏转圈/黑屏
+    // 我们手动执行 _loadQuota 的逻辑部分
+    try {
+      _error = null; // 清除错误状态，但保留上次的数据显示
+      
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+
+      if (refreshToken == null || refreshToken.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _error = '请先在控制台页面获取 Token';
+            _isRefreshing = false;
+          });
+        }
+        return;
+      }
+
+      final data = await AntigravityService.fetchQuota(refreshToken);
+      
+      if (!mounted) return;
+
+      if (data != null) {
+        await _saveToCache(data);
+        setState(() {
+          _quotaData = data;
+          _isRefreshing = false;
+          _isLoading = false; // 确保第一次加载后也置为 false
+        });
+      } else {
+        setState(() {
+          // 刷新失败仅 toast 或显示错误条，不清除旧数据
+           // _error = '额度查询失败，请稍后重试'; // 可选：如果希望显示错误栏
+          _isRefreshing = false;
+        });
+        
+        // 建议：可以加个 SnackBar 提示失败，保持界面不闪烁
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('刷新失败，请检查网络'), duration: Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        // _error = '查询异常: $e';
+        _isRefreshing = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('刷新异常: $e'), duration: const Duration(seconds: 2)),
+      );
+    }
   }
 
   @override
@@ -326,15 +380,8 @@ class _QuotaPageState extends State<QuotaPage> {
   List<ModelQuota> _getSortedModels() {
     if (_quotaData == null) return [];
     
-    // 定义优先级顺序
-    final priorityOrder = [
-      'gemini-3-pro-high',
-      'gemini-3-pro-low',
-      'claude-sonnet-4-5',
-      'claude-sonnet-4-5-thinking',
-      'claude-opus-4-5-thinking',
-      'gemini-3-flash',
-    ];
+    // 使用统一的优先级顺序
+    final priorityOrder = SupportedModels.quotaDisplayOrder;
 
     final models = List<ModelQuota>.from(_quotaData!.models);
     
@@ -419,41 +466,8 @@ class _QuotaPageState extends State<QuotaPage> {
       textColor = Colors.red.shade300;
     }
 
-    // 模型名称映射（完整映射所有已知模型）
-    String displayName = model.name;
-    
-    // Gemini 系列
-    if (model.name == 'gemini-3-pro-high') {
-      displayName = 'Gemini 3 Pro High';
-    } else if (model.name == 'gemini-3-pro-low') {
-      displayName = 'Gemini 3 Pro Low';
-    } else if (model.name == 'gemini-3-pro-image') {
-      displayName = 'Gemini 3 Pro Image';
-    } else if (model.name == 'gemini-3-flash') {
-      displayName = 'Gemini 3 Flash';
-    } else if (model.name == 'gemini-2.5-pro') {
-      displayName = 'Gemini 2.5 Pro';
-    } else if (model.name == 'gemini-2.5-flash') {
-      displayName = 'Gemini 2.5 Flash';
-    } else if (model.name == 'gemini-2.5-flash-thinking') {
-      displayName = 'Gemini 2.5 Flash Thinking';
-    } else if (model.name == 'gemini-2.5-flash-lite') {
-      displayName = 'Gemini 2.5 Flash Lite';
-    }
-    // Claude 系列
-    else if (model.name == 'claude-opus-4-5-thinking') {
-      displayName = 'Claude Opus 4.5 Thinking';
-    } else if (model.name == 'claude-sonnet-4-5') {
-      displayName = 'Claude Sonnet 4.5';
-    } else if (model.name == 'claude-sonnet-4-5-thinking') {
-      displayName = 'Claude Sonnet 4.5 Thinking';
-    }
-    // 通用后备规则
-    else if (model.name.startsWith('gemini-')) {
-      displayName = 'Gemini ${model.name.replaceFirst('gemini-', '').replaceAll('-', ' ')}';
-    } else if (model.name.startsWith('claude-')) {
-      displayName = 'Claude ${model.name.replaceFirst('claude-', '').replaceAll('-', ' ')}';
-    }
+    // 使用统一的模型名称映射
+    final displayName = SupportedModels.getDisplayName(model.name);
 
     return IOSGlassCard(
       child: Column(
@@ -569,7 +583,7 @@ class _QuotaPageState extends State<QuotaPage> {
     } else if (tierUpper.contains('PRO')) {
       return 'Pro 用户享有 5 小时快速重置周期';
     } else if (tierUpper.contains('FREE')) {
-      return 'Free 用户通常为7 天重置周期';
+      return 'Free 用户通常为 7 天重置周期';
     }
     return '不同订阅等级重置周期不同，请以实际显示为准';
   }

@@ -96,11 +96,15 @@ class AntigravityService {
         'project': projectId,
         'requestId': 'agent-${_generateUuid()}',
         'request': {
-          'contents': [{'role': 'user', 'parts': [{'text': 'Keep-alive'}]}]
+          'contents': [{'role': 'user', 'parts': [{'text': 'Keep-alive'}]}],
+          'systemInstruction': {
+            'role': 'user',
+            'parts': [{'text': 'You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**'}]
+          }
         },
         'model': selectedModel,
         'userAgent': 'antigravity',
-        'requestType': 'IDE_CHAT',
+        'requestType': 'agent',
       };
 
       try {

@@ -4,6 +4,7 @@ import 'services/antigravity_service.dart';
 import 'pages/oauth_login_page.dart';
 import 'pages/quota_page.dart';
 import 'widgets/ios_widgets.dart';
+import 'models/supported_models.dart';
 
 // 全局主题色控制器
 final ValueNotifier<Color> themeColor = ValueNotifier(const Color(0xFF000000));
@@ -77,20 +78,7 @@ class _KeepAlivePageState extends State<KeepAlivePage> {
   bool _lastSuccess = false;
   bool _stopRequested = false;
 
-  // 可选模型列表 (来自 Antigravity 实际支持的模型)
-  static const List<String> availableModels = [
-    'claude-sonnet-4-5',
-    'claude-sonnet-4-5-thinking',
-    'gemini-3-pro-high',
-    'gemini-3-pro-low',
-    'gemini-3-flash',
-    'gemini-2.5-pro',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-thinking',
-    'gemini-2.5-flash-lite',
-    'claude-opus-4-5-thinking',
-  ];
-  String _selectedModel = 'claude-sonnet-4-5';
+  String _selectedModel = SupportedModels.claudeSonnet45;
 
   // 默认 Token 为空，需要用户获取
   static const String defaultToken = "";
@@ -295,10 +283,10 @@ class _KeepAlivePageState extends State<KeepAlivePage> {
         height: 300,
         child: ListView.separated(
           padding: EdgeInsets.zero,
-          itemCount: availableModels.length,
+          itemCount: SupportedModels.availableModels.length,
           separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.1), height: 1),
           itemBuilder: (context, index) {
-            final model = availableModels[index];
+            final model = SupportedModels.availableModels[index];
             final isSelected = model == _selectedModel;
             return InkWell(
               onTap: () {
